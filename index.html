@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Побег из Подвала</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            perspective: 1000px;
+        }
+
+        #scene {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease;
+        }
+
+        .wall {
+            position: absolute;
+            background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+            border: 2px solid #333;
+            backface-visibility: visible;
+        }
+
+        #front-wall {
+            width: 800px;
+            height: 600px;
+            transform: translateZ(-400px) translateX(-50%) translateY(-50%);
+            left: 50%;
+            top: 50%;
+        }
+
+        #back-wall {
+            width: 800px;
+            height: 600px;
+            transform: rotateY(180deg) translateZ(-400px) translateX(-50%) translateY(-50%);
+            left: 50%;
+            top: 50%;
+        }
+
+        #left-wall {
+            width: 800px;
+            height: 600px;
+            transform: rotateY(-90deg) translateZ(-400px) translateX(-50%) translateY(-50%);
+            left: 50%;
+            top: 50%;
+        }
+
+        #right-wall {
+            width: 800px;
+            height: 600px;
+            transform: rotateY(90deg) translateZ(-400px) translateX(-50%) translateY(-50%);
+            left: 50%;
+            top: 50%;
+        }
+
+        #floor {
+            width: 800px;
+            height: 800px;
+            background: linear-gradient(180deg, #3d3d3d 0%, #2a2a2a 100%);
+            transform: rotateX(90deg) translateZ(400px) translateX(-50%) translateY(-50%);
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            border: 2px solid #333;
+        }
+
+        #ceiling {
+            width: 800px;
+            height: 800px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+            transform: rotateX(-90deg) translateZ(400px) translateX(-50%) translateY(-50%);
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            border: 2px solid #333;
+        }
+
+        .item {
+            position: absolute;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .item:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+
+        .item-collected {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        #ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #444;
+            min-width: 250px;
+        }
+
+        #inventory {
+            margin-top: 15px;
+            min-height: 100px;
+        }
+
+        .inventory-item {
+            background: #333;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        #message {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px 40px;
+            border-radius: 10px;
+            border: 2px solid #666;
+            font-size: 18px;
+            z-index: 1000;
+            text-align: center;
+            max-width: 80%;
+            display: none;
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #444;
+        }
+
+        .control-btn {
+            background: #444;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.3s;
+        }
+
+        .control-btn:hover {
+            background: #666;
+        }
+
+        #kidnapper-alert {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(139, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 15px;
+            border: 3px solid #ff0000;
+            font-size: 24px;
+            z-index: 2000;
+            text-align: center;
+            display: none;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        #start-screen, #game-over-screen, #win-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            text-align: center;
+            padding: 40px;
+        }
+
+        #game-over-screen, #win-screen {
+            display: none;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #ff6b6b;
+        }
+
+        h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        .story-text {
+            font-size: 18px;
+            max-width: 600px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            color: #ccc;
+        }
+
+        .start-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .start-btn:hover {
+            background: #ff5252;
+            transform: scale(1.05);
+        }
+
+        .danger {
+            color: #ff4444;
+            font-weight: bold;
+        }
+
+        .success {
+            color: #44ff44;
+            font-weight: bold;
+        }
+
+        #view-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 2px solid #444;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>🏚️ ПОБЕГ ИЗ ПОДВАЛА</h1>
+        <div class="story-text">
+            <p>Вы гуляли с друзьями по окраине города, когда внезапно всё потемнело...</p>
+            <br>
+            <p>Очнувшись, вы обнаружили себя в сыром подвале. Дверь заперта, окна заколочены.</p>
+            <br>
+            <p class="danger">⚠️ ВНИМАНИЕ: Похититель периодически приходит проверять вас!</p>
+            <br>
+            <p>Если он заметит беспорядок или что вещи не на своих местах — вас побьют.</p>
+            <br>
+            <p>У вас есть <span class="danger">10 попыток</span>. Найдите все спрятанные предметы и используйте их, чтобы сбежать!</p>
+        </div>
+        <button class="start-btn" onclick="startGame()">НАЧАТЬ ИГРУ</button>
+    </div>
+
+    <div id="game-over-screen">
+        <h1>💀 ИГРА ОКОНЧЕНА</h1>
+        <div class="story-text" id="death-reason"></div>
+        <button class="start-btn" onclick="location.reload()">ПОПРОБОВАТЬ СНОВА</button>
+    </div>
+
+    <div id="win-screen">
+        <h1 class="success">🎉 ПОБЕДА!</h1>
+        <div class="story-text">
+            <p>Вам удалось найти все предметы и сбежать из подвала!</p>
+            <br>
+            <p>Теперь нужно скорее найти друзей и обратиться в полицию.</p>
+        </div>
+        <button class="start-btn" onclick="location.reload()">ИГРАТЬ ЕЩЁ РАЗ</button>
+    </div>
+
+    <div id="game-container">
+        <div id="scene">
+            <div id="front-wall" class="wall"></div>
+            <div id="back-wall" class="wall"></div>
+            <div id="left-wall" class="wall"></div>
+            <div id="right-wall" class="wall"></div>
+            <div id="floor"></div>
+            <div id="ceiling"></div>
+        </div>
+    </div>
+
+    <div id="ui">
+        <div><strong>Попытки:</strong> <span id="attempts">10</span>/10</div>
+        <div><strong>Найдено предметов:</strong> <span id="items-found">0</span>/<span id="total-items">0</span></div>
+        <div id="inventory">
+            <strong>Инвентарь:</strong>
+            <div id="inventory-list"></div>
+        </div>
+    </div>
+
+    <div id="view-indicator">
+        <strong>Обзор:</strong> <span id="current-view">Передняя стена</span>
+    </div>
+
+    <div id="controls">
+        <button class="control-btn" onclick="rotateView('left')">← Влево</button>
+        <button class="control-btn" onclick="rotateView('right')">Вправо →</button>
+        <button class="control-btn" onclick="lookUp()">Вверх</button>
+        <button class="control-btn" onclick="lookDown()">Вниз</button>
+        <button class="control-btn" onclick="resetView()">Центр</button>
+    </div>
+
+    <div id="message"></div>
+    <div id="kidnapper-alert">
+        🔴 ПОХИТИТЕЛЬ ПРОВЕРЯЕТ! 🔴<br><br>
+        Верните всё на свои места!
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            attempts: 10,
+            itemsFound: 0,
+            inventory: [],
+            currentView: 0, // 0: front, 1: right, 2: back, 3: left
+            gameActive: false,
+            kidnapperTimer: null,
+            items: []
+        };
+
+        // Items configuration
+        const itemsConfig = [
+            { id: 1, name: "Ржавый ключ", wall: "front", x: 200, y: 300, description: "Старый ржавый ключ, возможно от двери" },
+            { id: 2, name: "Обломок трубы", wall: "right", x: 400, y: 250, description: "Тяжелый металлический прут" },
+            { id: 3, name: "Спички", wall: "left", x: 150, y: 200, description: "Почти пустая коробочка спичек" },
+            { id: 4, name: "Веревка", wall: "back", x: 300, y: 350, description: "Крепкая веревка, около 5 метров" },
+            { id: 5, name: "Фонарик", wall: "floor", x: 500, y: 400, description: "Рабочий фонарик с батарейками" },
+            { id: 6, name: "Нож", wall: "ceiling", x: 250, y: 150, description: "Маленький перочинный нож" },
+            { id: 7, name: "Записка", wall: "front", x: 600, y: 100, description: "Чья-то старая записка с каракулями" },
+            { id: 8, name: "Монета", wall: "back", x: 500, y: 450, description: "Странная монета с непонятными символами" }
+        ];
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            gameState.gameActive = true;
+            gameState.items = [...itemsConfig];
+            gameState.totalItems = itemsConfig.length;
+            document.getElementById('total-items').textContent = gameState.totalItems;
+
+            createItems();
+            startKidnapperCycle();
+            showMessage("Исследуйте подвал и найдите все предметы!", 3000);
+        }
+
+        function createItems() {
+            const scene = document.getElementById('scene');
+
+            gameState.items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'item';
+                itemEl.id = `item-${item.id}`;
+                itemEl.textContent = item.name;
+                itemEl.style.left = item.x + 'px';
+                itemEl.style.top = item.y + 'px';
+
+                if (item.wall === 'front') {
+                    document.getElementById('front-wall').appendChild(itemEl);
+                } else if (item.wall === 'right') {
+                    document.getElementById('right-wall').appendChild(itemEl);
+                } else if (item.wall === 'back') {
+                    document.getElementById('back-wall').appendChild(itemEl);
+                } else if (item.wall === 'left') {
+                    document.getElementById('left-wall').appendChild(itemEl);
+                } else if (item.wall === 'floor') {
+                    document.getElementById('floor').appendChild(itemEl);
+                } else if (item.wall === 'ceiling') {
+                    document.getElementById('ceiling').appendChild(itemEl);
+                }
+
+                itemEl.onclick = () => collectItem(item);
+            });
+        }
+
+        function collectItem(item) {
+            if (!gameState.gameActive) return;
+
+            const itemEl = document.getElementById(`item-${item.id}`);
+            if (itemEl.classList.contains('item-collected')) return;
+
+            gameState.inventory.push(item);
+            gameState.itemsFound++;
+
+            itemEl.classList.add('item-collected');
+            updateUI();
+
+            showMessage(`Вы нашли: ${item.name} - ${item.description}`, 2000);
+
+            checkWinCondition();
+        }
+
+        function updateUI() {
+            document.getElementById('attempts').textContent = gameState.attempts;
+            document.getElementById('items-found').textContent = gameState.itemsFound;
+
+            const inventoryList = document.getElementById('inventory-list');
+            inventoryList.innerHTML = '';
+
+            gameState.inventory.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'inventory-item';
+                itemDiv.textContent = item.name;
+                inventoryList.appendChild(itemDiv);
+            });
+        }
+
+        function rotateView(direction) {
+            if (!gameState.gameActive) return;
+
+            const scene = document.getElementById('scene');
+            const views = ['Передняя стена', 'Правая стена', 'Задняя стена', 'Левая стена'];
+
+            if (direction === 'right') {
+                gameState.currentView = (gameState.currentView + 1) % 4;
+            } else {
+                gameState.currentView = (gameState.currentView - 1 + 4) % 4;
+            }
+
+            scene.style.transform = `rotateY(${-gameState.currentView * 90}deg)`;
+            document.getElementById('current-view').textContent = views[gameState.currentView];
+        }
+
+        function lookUp() {
+            if (!gameState.gameActive) return;
+            const scene = document.getElementById('scene');
+            scene.style.transform += ' rotateX(-30deg)';
+            document.getElementById('current-view').textContent = 'Потолок';
+        }
+
+        function lookDown() {
+            if (!gameState.gameActive) return;
+            const scene = document.getElementById('scene');
+            scene.style.transform += ' rotateX(30deg)';
+            document.getElementById('current-view').textContent = 'Пол';
+        }
+
+        function resetView() {
+            if (!gameState.gameActive) return;
+            const scene = document.getElementById('scene');
+            scene.style.transform = `rotateY(${-gameState.currentView * 90}deg)`;
+            const views = ['Передняя стена', 'Правая стена', 'Задняя стена', 'Левая стена'];
+            document.getElementById('current-view').textContent = views[gameState.currentView];
+        }
+
+        function startKidnapperCycle() {
+            // First visit after 15 seconds
+            gameState.kidnapperTimer = setTimeout(kidnapperVisit, 15000);
+        }
+
+        function kidnapperVisit() {
+            if (!gameState.gameActive) return;
+
+            const alert = document.getElementById('kidnapper-alert');
+            alert.style.display = 'block';
+
+            // Check if player has made a mess (for this simple version, we'll just reduce attempts)
+            setTimeout(() => {
+                alert.style.display = 'none';
+
+                // Random chance of getting caught
+                if (Math.random() > 0.7 || gameState.itemsFound < 3) {
+                    gameState.attempts--;
+                    updateUI();
+                    showMessage("Похититель заметил беспорядок и ударил вас!", 3000);
+
+                    if (gameState.attempts <= 0) {
+                        gameOver("Похититель забил вас до смерти...");
+                    }
+                } else {
+                    showMessage("Похититель ничего не заметил и ушел.", 2000);
+                }
+
+                // Next visit in 20-30 seconds
+                const nextVisit = Math.random() * 10000 + 20000;
+                gameState.kidnapperTimer = setTimeout(kidnapperVisit, nextVisit);
+
+            }, 3000);
+        }
+
+        function checkWinCondition() {
+            if (gameState.itemsFound >= gameState.totalItems) {
+                // Player needs to use items to escape
+                setTimeout(() => {
+                    if (confirm("У вас есть все предметы! Использовать их для побега?")) {
+                        winGame();
+                    }
+                }, 1000);
+            }
+        }
+
+        function winGame() {
+            gameState.gameActive = false;
+            clearTimeout(gameState.kidnapperTimer);
+            document.getElementById('win-screen').style.display = 'flex';
+        }
+
+        function gameOver(reason) {
+            gameState.gameActive = false;
+            clearTimeout(gameState.kidnapperTimer);
+            document.getElementById('death-reason').textContent = reason;
+            document.getElementById('game-over-screen').style.display = 'flex';
+        }
+
+        function showMessage(text, duration) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.style.display = 'block';
+
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, duration);
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameState.gameActive) return;
+
+            switch(e.key) {
+                case 'ArrowLeft':
+                case 'a':
+                    rotateView('left');
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                    rotateView('right');
+                    break;
+                case 'ArrowUp':
+                case 'w':
+                    lookUp();
+                    break;
+                case 'ArrowDown':
+                case 's':
+                    lookDown();
+                    break;
+                case ' ':
+                    resetView();
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>
