@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Побег из Подвала - Stealth Game</title>
+    <title>Побег из Подвала - First Person Stealth</title>
     <style>
         * {
             margin: 0;
@@ -14,11 +14,45 @@
             font-family: 'Courier New', monospace;
             overflow: hidden;
             background: #000;
+            user-select: none;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
         }
         #gameCanvas {
             display: block;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+            z-index: 100;
+        }
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+        }
+        #crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 9px;
+            top: 0;
+        }
+        #crosshair::after {
+            width: 20px;
+            height: 2px;
+            top: 9px;
+            left: 0;
         }
         #ui {
             position: absolute;
@@ -32,8 +66,9 @@
         #ui div {
             margin: 5px 0;
             background: rgba(0,0,0,0.7);
-            padding: 5px 10px;
+            padding: 8px 12px;
             border-radius: 5px;
+            border-left: 3px solid #ff6b6b;
         }
         #inventory {
             position: absolute;
@@ -42,85 +77,95 @@
             color: #fff;
             font-size: 14px;
             background: rgba(0,0,0,0.8);
-            padding: 10px;
+            padding: 15px;
             border-radius: 5px;
-            max-width: 300px;
+            max-width: 350px;
             z-index: 100;
+            border: 2px solid #333;
         }
         #inventory h3 {
-            margin-bottom: 5px;
+            margin-bottom: 10px;
             color: #ff6b6b;
+            font-size: 18px;
         }
         .item-slot {
             display: inline-block;
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             border: 2px solid #555;
             margin: 3px;
             background: rgba(50,50,50,0.8);
             border-radius: 5px;
             text-align: center;
-            line-height: 46px;
-            font-size: 24px;
+            line-height: 56px;
+            font-size: 28px;
+            transition: all 0.3s;
         }
         .item-slot.collected {
             border-color: #4ecdc4;
             background: rgba(78,205,196,0.3);
+            transform: scale(1.05);
         }
         #message {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             color: #fff;
             font-size: 24px;
             text-align: center;
-            background: rgba(0,0,0,0.9);
-            padding: 30px;
-            border-radius: 10px;
-            border: 3px solid #ff6b6b;
+            background: rgba(0,0,0,0.95);
             display: none;
-            z-index: 200;
+            z-index: 300;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
         }
-        #minimap {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 150px;
-            height: 150px;
-            background: rgba(0,0,0,0.8);
-            border: 2px solid #555;
-            border-radius: 5px;
-            z-index: 100;
+        #message h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
         }
-        #controls {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
+        #message p {
+            font-size: 20px;
+            margin-bottom: 30px;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+        .btn {
+            background: #ff6b6b;
             color: #fff;
-            font-size: 12px;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
             border-radius: 5px;
-            z-index: 100;
+            cursor: pointer;
+            margin: 10px;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #ee5a5a;
+            transform: scale(1.05);
         }
         #stealth-meter {
             position: absolute;
-            top: 170px;
+            top: 10px;
             right: 10px;
-            width: 150px;
+            width: 200px;
             background: rgba(0,0,0,0.8);
             border: 2px solid #555;
             border-radius: 5px;
-            padding: 5px;
+            padding: 10px;
             z-index: 100;
         }
         #stealth-bar {
             width: 100%;
-            height: 20px;
-            background: #333;
+            height: 25px;
+            background: #222;
             border-radius: 3px;
             overflow: hidden;
+            border: 1px solid #444;
         }
         #stealth-fill {
             width: 0%;
@@ -130,80 +175,164 @@
         }
         #stealth-text {
             color: #fff;
-            font-size: 12px;
+            font-size: 13px;
             text-align: center;
-            margin-top: 3px;
+            margin-top: 5px;
+            font-weight: bold;
         }
-        .btn {
-            background: #ff6b6b;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            color: #aaa;
+            font-size: 13px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
             border-radius: 5px;
-            cursor: pointer;
-            margin: 10px 5px;
+            z-index: 100;
+            line-height: 1.8;
+            border: 2px solid #333;
         }
-        .btn:hover {
-            background: #ee5a5a;
+        #damage-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 50%, rgba(255,0,0,0.5) 100%);
+            pointer-events: none;
+            z-index: 90;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        #enemy-indicator {
+            position: absolute;
+            top: 60px;
+            right: 10px;
+            color: #ff6b6b;
+            font-size: 14px;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 12px;
+            border-radius: 5px;
+            z-index: 100;
+            display: none;
+        }
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 400;
+        }
+        #start-screen h1 {
+            font-size: 56px;
+            margin-bottom: 20px;
+            color: #ff6b6b;
+            text-shadow: 0 0 20px rgba(255,107,107,0.5);
+        }
+        #start-screen p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            max-width: 700px;
+            text-align: center;
+            line-height: 1.8;
+            color: #ccc;
+        }
+        .feature-list {
+            text-align: left;
+            margin: 20px 0;
+            font-size: 16px;
+            color: #aaa;
+        }
+        .feature-list li {
+            margin: 8px 0;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    
-    <div id="ui">
-        <div>❤️ Жизни: <span id="lives">10</span></div>
-        <div>📦 Предметы: <span id="items-collected">0</span>/8</div>
-        <div>⏱️ Время: <span id="time">0:00</span></div>
-        <div>👁️ Статус: <span id="status">Безопасно</span></div>
-    </div>
-    
-    <div id="minimap">
-        <canvas id="minimapCanvas" width="150" height="150"></canvas>
-    </div>
-    
-    <div id="stealth-meter">
-        <div id="stealth-bar">
-            <div id="stealth-fill"></div>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="crosshair"></div>
+        
+        <div id="ui">
+            <div>❤️ Жизни: <span id="lives">10</span></div>
+            <div>📦 Предметы: <span id="items-collected">0</span>/8</div>
+            <div>⏱️ Время: <span id="time">0:00</span></div>
         </div>
-        <div id="stealth-text">Уровень заметности</div>
-    </div>
-    
-    <div id="inventory">
-        <h3>🎒 Инвентарь</h3>
-        <div id="items-container"></div>
-    </div>
-    
-    <div id="controls">
-        WASD/Стрелки - Движение<br>
-        SHIFT - Бег<br>
-        C - Присесть<br>
-        E - Взять предмет<br>
-        M - Миникарта
-    </div>
-    
-    <div id="message">
-        <h2 id="msg-title"></h2>
-        <p id="msg-text"></p>
-        <button class="btn" onclick="restartGame()">Играть снова</button>
+        
+        <div id="stealth-meter">
+            <div id="stealth-bar">
+                <div id="stealth-fill"></div>
+            </div>
+            <div id="stealth-text">УРОВЕНЬ ЗАМЕТНОСТИ</div>
+        </div>
+        
+        <div id="enemy-indicator">⚠️ ВРАГ РЯДОМ!</div>
+        
+        <div id="inventory">
+            <h3>🎒 Инвентарь</h3>
+            <div id="items-container"></div>
+        </div>
+        
+        <div id="controls">
+            <strong>УПРАВЛЕНИЕ:</strong><br>
+            W/A/S/D - Движение<br>
+            SHIFT - Бег (шумно)<br>
+            C - Присесть (тише)<br>
+            Мышь - Обзор<br>
+            ЛКМ - Взять предмет<br>
+            ESC - Пауза
+        </div>
+        
+        <div id="damage-overlay"></div>
+        
+        <div id="message">
+            <h2 id="msg-title"></h2>
+            <p id="msg-text"></p>
+            <button class="btn" onclick="restartGame()">ИГРАТЬ СНОВА</button>
+        </div>
+        
+        <div id="start-screen">
+            <h1>🏚️ ПОБЕГ ИЗ ПОДВАЛА</h1>
+            <p>
+                Вас похитили и заперли в темном подвале.<br>
+                Найдите 8 спрятанных предметов и сбежите, пока похититель не поймал вас!
+            </p>
+            <ul class="feature-list">
+                <li>🎮 Вид от первого лица</li>
+                <li>👤 Умный ИИ похитителя с патрулированием</li>
+                <li>🌑 Темные зоны для укрытия</li>
+                <li>🔦 Система скрытности и заметности</li>
+                <li>💀 10 жизней - не дайте себя поймать!</li>
+            </ul>
+            <button class="btn" onclick="startGame()">НАЧАТЬ ИГРУ</button>
+        </div>
     </div>
 
     <script>
+        // === НАСТРОЙКИ ИГРЫ ===
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const minimapCanvas = document.getElementById('minimapCanvas');
-        const minimapCtx = minimapCanvas.getContext('2d');
         
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        let screenWidth = window.innerWidth;
+        let screenHeight = window.innerHeight;
+        canvas.width = screenWidth;
+        canvas.height = screenHeight;
         
-        // Игровые константы
-        const ROOM_WIDTH = 800;
-        const ROOM_HEIGHT = 600;
-        const PLAYER_SIZE = 20;
-        const ENEMY_SIZE = 25;
-        const ITEM_SIZE = 15;
+        // Константы мира
+        const WORLD_WIDTH = 800;
+        const WORLD_HEIGHT = 600;
+        const WALL_HEIGHT = 300;
+        const FOV = Math.PI / 3;
+        const NUM_RAYS = screenWidth / 3;
         
         // Состояние игры
         let gameState = {
@@ -211,46 +340,43 @@
             itemsCollected: 0,
             totalItems: 8,
             gameTime: 0,
-            isRunning: true,
+            isRunning: false,
             stealthLevel: 0,
-            lastEnemyCheck: 0
+            lastTime: 0,
+            isPaused: false
         };
         
-        // Игрок
+        // Игрок (вид от первого лица)
         let player = {
-            x: ROOM_WIDTH / 2,
-            y: ROOM_HEIGHT / 2,
-            vx: 0,
-            vy: 0,
+            x: WORLD_WIDTH / 2,
+            y: WORLD_HEIGHT / 2,
+            angle: 0,
             speed: 3,
             runSpeed: 5,
             isRunning: false,
             isCrouching: false,
-            angle: 0,
-            viewDistance: 150,
-            viewAngle: Math.PI / 3
+            height: 1.0,
+            viewDistance: 400
         };
         
-        // Похититель (ИИ)
+        // Похититель
         let enemy = {
             x: 100,
             y: 100,
-            vx: 0,
-            vy: 0,
-            speed: 2,
+            speed: 2.5,
             patrolPoints: [
                 {x: 100, y: 100},
                 {x: 700, y: 100},
                 {x: 700, y: 500},
-                {x: 100, y: 500}
+                {x: 100, y: 500},
+                {x: 400, y: 300}
             ],
             currentPoint: 0,
-            state: 'patrol', // patrol, chase, search, return
-            targetX: null,
-            targetY: null,
+            state: 'patrol',
             awareness: 0,
             lastSeenPlayer: null,
-            searchTime: 0
+            searchTime: 0,
+            angle: 0
         };
         
         // Предметы
@@ -259,47 +385,431 @@
             {x: 650, y: 150, collected: false, name: 'Обломок трубы', icon: '🔧'},
             {x: 650, y: 450, collected: false, name: 'Старая газета', icon: '📰'},
             {x: 150, y: 450, collected: false, name: 'Батарейка', icon: '🔋'},
-            {x: 400, y: 80, collected: false, name: 'Верёвка', icon: '🪢'},
-            {x: 400, y: 520, collected: false, name: 'Ножницы', icon: '✂️'},
-            {x: 80, y: 300, collected: false, name: 'Фонарик', icon: '🔦'},
-            {x: 720, y: 300, collected: false, name: 'Монета', icon: '🪙'}
+            {x: 80, y: 300, collected: false, name: 'Верёвка', icon: '🪢'},
+            {x: 720, y: 300, collected: false, name: 'Ножницы', icon: '✂️'},
+            {x: 400, y: 80, collected: false, name: 'Фонарик', icon: '🔦'},
+            {x: 400, y: 520, collected: false, name: 'Монета', icon: '🪙'}
         ];
         
         // Укрытия (тёмные зоны)
         const hidingSpots = [
-            {x: 120, y: 120, width: 100, height: 100},
-            {x: 580, y: 120, width: 100, height: 100},
-            {x: 580, y: 380, width: 100, height: 100},
-            {x: 120, y: 380, width: 100, height: 100},
-            {x: 350, y: 50, width: 100, height: 80},
-            {x: 350, y: 470, width: 100, height: 80}
+            {x: 100, y: 100, width: 120, height: 120},
+            {x: 580, y: 100, width: 120, height: 120},
+            {x: 580, y: 380, width: 120, height: 120},
+            {x: 100, y: 380, width: 120, height: 120}
+        ];
+        
+        // Стены (границы комнаты)
+        const walls = [
+            {x: 0, y: 0, width: WORLD_WIDTH, height: 10, side: 'north'},
+            {x: 0, y: WORLD_HEIGHT - 10, width: WORLD_WIDTH, height: 10, side: 'south'},
+            {x: 0, y: 0, width: 10, height: WORLD_HEIGHT, side: 'west'},
+            {x: WORLD_WIDTH - 10, y: 0, width: 10, height: WORLD_HEIGHT, side: 'east'}
         ];
         
         // Управление
         const keys = {};
+        let isPointerLocked = false;
         
+        // === ОБРАБОТЧИКИ СОБЫТИЙ ===
         document.addEventListener('keydown', (e) => {
             keys[e.key.toLowerCase()] = true;
-            if (e.key === 'e' || e.key === 'E' || e.key === 'у' || e.key === 'У') {
-                tryCollectItem();
+            if (e.key === 'Escape') {
+                if (isPointerLocked) {
+                    document.exitPointerLock();
+                }
+                gameState.isPaused = !gameState.isPaused;
             }
-            if (e.key === 'm' || e.key === 'M' || e.key === 'ь' || e.key === 'Ь') {
-                // Toggle minimap if needed
+            if (e.key === 'c' || e.key === 'C' || e.key === 'с' || e.key === 'С') {
+                player.isCrouching = true;
+                player.height = 0.5;
+            }
+            if (e.key === 'Shift') {
+                player.isRunning = true;
             }
         });
         
         document.addEventListener('keyup', (e) => {
             keys[e.key.toLowerCase()] = false;
+            if (e.key === 'c' || e.key === 'C' || e.key === 'с' || e.key === 'С') {
+                player.isCrouching = false;
+                player.height = 1.0;
+            }
+            if (e.key === 'Shift') {
+                player.isRunning = false;
+            }
         });
         
-        // Проверка сбора предмета
+        canvas.addEventListener('click', () => {
+            if (gameState.isRunning && !gameState.isPaused) {
+                canvas.requestPointerLock();
+                tryCollectItem();
+            }
+        });
+        
+        document.addEventListener('pointerlockchange', () => {
+            isPointerLocked = document.pointerLockElement === canvas;
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isPointerLocked && gameState.isRunning && !gameState.isPaused) {
+                player.angle += e.movementX * 0.002;
+            }
+        });
+        
+        // === RAYCASTING (псевдо-3D рендеринг) ===
+        function castRay(angle) {
+            const sin = Math.sin(angle);
+            const cos = Math.cos(angle);
+            
+            let dist = 0;
+            const step = 2;
+            const maxDist = player.viewDistance;
+            
+            while (dist < maxDist) {
+                const testX = player.x + cos * dist;
+                const testY = player.y + sin * dist;
+                
+                for (const wall of walls) {
+                    if (testX >= wall.x && testX <= wall.x + wall.width &&
+                        testY >= wall.y && testY <= wall.y + wall.height) {
+                        return { dist, side: wall.side, hit: true };
+                    }
+                }
+                
+                dist += step;
+            }
+            
+            return { dist: maxDist, side: null, hit: false };
+        }
+        
+        function render3D() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, screenHeight);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(0.5, '#0f0f1a');
+            gradient.addColorStop(1, '#0a0a12');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, screenWidth, screenHeight);
+            
+            const startAngle = player.angle - FOV / 2;
+            const rayStep = FOV / NUM_RAYS;
+            
+            for (let i = 0; i < NUM_RAYS; i++) {
+                const rayAngle = startAngle + i * rayStep;
+                const ray = castRay(rayAngle);
+                
+                if (ray.hit) {
+                    const correctedDist = ray.dist * Math.cos(rayAngle - player.angle);
+                    const wallHeight = (WALL_HEIGHT * screenHeight) / (correctedDist + 1);
+                    const wallTop = (screenHeight - wallHeight) / 2;
+                    
+                    let brightness = Math.max(0.2, 1 - correctedDist / player.viewDistance);
+                    let r, g, b;
+                    
+                    if (ray.side === 'north' || ray.side === 'south') {
+                        r = Math.floor(100 * brightness);
+                        g = Math.floor(100 * brightness);
+                        b = Math.floor(120 * brightness);
+                    } else {
+                        r = Math.floor(80 * brightness);
+                        g = Math.floor(80 * brightness);
+                        b = Math.floor(100 * brightness);
+                    }
+                    
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(i * (screenWidth / NUM_RAYS), wallTop, 
+                                screenWidth / NUM_RAYS + 1, wallHeight);
+                    
+                    if (correctedDist < 150) {
+                        ctx.fillStyle = `rgba(0, 0, 0, ${0.3 - correctedDist / 500})`;
+                        ctx.fillRect(i * (screenWidth / NUM_RAYS), wallTop, 
+                                    screenWidth / NUM_RAYS + 1, wallHeight);
+                    }
+                }
+            }
+            
+            renderItems();
+            renderEnemy();
+            
+            const vignette = ctx.createRadialGradient(
+                screenWidth / 2, screenHeight / 2, screenHeight / 3,
+                screenWidth / 2, screenHeight / 2, screenHeight
+            );
+            vignette.addColorStop(0, 'transparent');
+            vignette.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+            ctx.fillStyle = vignette;
+            ctx.fillRect(0, 0, screenWidth, screenHeight);
+            
+            if (player.isCrouching) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(0, 0, screenWidth, screenHeight * 0.1);
+            }
+        }
+        
+        function renderItems() {
+            items.forEach(item => {
+                if (item.collected) return;
+                
+                const dx = item.x - player.x;
+                const dy = item.y - player.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > player.viewDistance) return;
+                
+                const angleToItem = Math.atan2(dy, dx);
+                let angleDiff = angleToItem - player.angle;
+                
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                
+                if (Math.abs(angleDiff) < FOV / 1.5) {
+                    const screenX = screenWidth / 2 + (angleDiff / (FOV / 2)) * (screenWidth / 2);
+                    const size = Math.max(20, 80 * (1 - dist / player.viewDistance));
+                    const screenY = screenHeight / 2 + size * 0.3;
+                    
+                    ctx.font = `${size}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#fff';
+                    ctx.shadowColor = '#ffff00';
+                    ctx.shadowBlur = 10;
+                    ctx.fillText(item.icon, screenX, screenY);
+                    ctx.shadowBlur = 0;
+                    
+                    if (dist < 50) {
+                        ctx.strokeStyle = '#4ecdc4';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(screenX, screenY, size * 0.7, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                }
+            });
+        }
+        
+        function renderEnemy() {
+            const dx = enemy.x - player.x;
+            const dy = enemy.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > player.viewDistance) {
+                document.getElementById('enemy-indicator').style.display = 'none';
+                return;
+            }
+            
+            const angleToEnemy = Math.atan2(dy, dx);
+            let angleDiff = angleToEnemy - player.angle;
+            
+            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+            
+            if (Math.abs(angleDiff) < FOV / 1.5) {
+                const screenX = screenWidth / 2 + (angleDiff / (FOV / 2)) * (screenWidth / 2);
+                const size = Math.max(30, 120 * (1 - dist / player.viewDistance));
+                const screenY = screenHeight / 2 + size * 0.2;
+                
+                ctx.font = `${size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ff0000';
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 15;
+                ctx.fillText('👤', screenX, screenY);
+                ctx.shadowBlur = 0;
+                
+                document.getElementById('enemy-indicator').style.display = 'block';
+            } else {
+                document.getElementById('enemy-indicator').style.display = 'none';
+            }
+        }
+        
+        // === ФИЗИКА И ДВИЖЕНИЕ ===
+        function updatePlayer() {
+            let moveSpeed = player.isRunning ? player.runSpeed : player.speed;
+            if (player.isCrouching) moveSpeed *= 0.5;
+            
+            let dx = 0;
+            let dy = 0;
+            
+            if (keys['w'] || keys['arrowup'] || keys['ц']) {
+                dx += Math.cos(player.angle) * moveSpeed;
+                dy += Math.sin(player.angle) * moveSpeed;
+            }
+            if (keys['s'] || keys['arrowdown'] || keys['ы']) {
+                dx -= Math.cos(player.angle) * moveSpeed;
+                dy -= Math.sin(player.angle) * moveSpeed;
+            }
+            if (keys['a'] || keys['arrowleft'] || keys['ф']) {
+                dx += Math.cos(player.angle - Math.PI / 2) * moveSpeed;
+                dy += Math.sin(player.angle - Math.PI / 2) * moveSpeed;
+            }
+            if (keys['d'] || keys['arrowright'] || keys['в']) {
+                dx += Math.cos(player.angle + Math.PI / 2) * moveSpeed;
+                dy += Math.sin(player.angle + Math.PI / 2) * moveSpeed;
+            }
+            
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+            
+            if (newX > 20 && newX < WORLD_WIDTH - 20) {
+                player.x = newX;
+            }
+            if (newY > 20 && newY < WORLD_HEIGHT - 20) {
+                player.y = newY;
+            }
+        }
+        
+        // === ИИ ВРАГА ===
+        function isInHidingSpot(x, y) {
+            return hidingSpots.some(spot => 
+                x > spot.x && x < spot.x + spot.width &&
+                y > spot.y && y < spot.y + spot.height
+            );
+        }
+        
+        function canEnemySeePlayer() {
+            const dx = player.x - enemy.x;
+            const dy = player.y - enemy.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 250) return false;
+            
+            if (isInHidingSpot(player.x, player.y) && !player.isRunning) {
+                return false;
+            }
+            
+            const angleToPlayer = Math.atan2(dy, dx);
+            let angleDiff = Math.abs(angleToPlayer - enemy.angle);
+            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            angleDiff = Math.abs(angleDiff);
+            
+            if (angleDiff > Math.PI / 2.5) return false;
+            
+            if (player.isCrouching) {
+                return dist < 120;
+            }
+            
+            return true;
+        }
+        
+        function updateEnemy(deltaTime) {
+            const dx = player.x - enemy.x;
+            const dy = player.y - enemy.y;
+            const distToPlayer = Math.sqrt(dx * dx + dy * dy);
+            
+            if (enemy.state === 'chase' || enemy.state === 'search') {
+                enemy.angle = Math.atan2(dy, dx);
+            } else {
+                const target = enemy.patrolPoints[enemy.currentPoint];
+                const pdx = target.x - enemy.x;
+                const pdy = target.y - enemy.y;
+                enemy.angle = Math.atan2(pdy, pdx);
+            }
+            
+            switch (enemy.state) {
+                case 'patrol':
+                    const target = enemy.patrolPoints[enemy.currentPoint];
+                    const pdx = target.x - enemy.x;
+                    const pdy = target.y - enemy.y;
+                    const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+                    
+                    if (pDist < 10) {
+                        enemy.currentPoint = (enemy.currentPoint + 1) % enemy.patrolPoints.length;
+                    } else {
+                        enemy.x += (pdx / pDist) * enemy.speed;
+                        enemy.y += (pdy / pDist) * enemy.speed;
+                    }
+                    
+                    if (canEnemySeePlayer()) {
+                        enemy.state = 'chase';
+                        enemy.lastSeenPlayer = {x: player.x, y: player.y};
+                        enemy.awareness = 100;
+                    }
+                    break;
+                    
+                case 'chase':
+                    enemy.x += (dx / distToPlayer) * (enemy.speed * 1.3);
+                    enemy.y += (dy / distToPlayer) * (enemy.speed * 1.3);
+                    
+                    if (!canEnemySeePlayer()) {
+                        enemy.state = 'search';
+                        enemy.searchTime = 0;
+                    }
+                    
+                    if (distToPlayer < 35) {
+                        catchPlayer();
+                    }
+                    break;
+                    
+                case 'search':
+                    enemy.searchTime += deltaTime;
+                    
+                    if (enemy.lastSeenPlayer) {
+                        const sdx = enemy.lastSeenPlayer.x - enemy.x;
+                        const sdy = enemy.lastSeenPlayer.y - enemy.y;
+                        const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+                        
+                        if (sDist > 10) {
+                            enemy.x += (sdx / sDist) * enemy.speed;
+                            enemy.y += (sdy / sDist) * enemy.speed;
+                        } else {
+                            enemy.angle += 0.02;
+                            enemy.x += Math.cos(enemy.angle) * enemy.speed * 0.5;
+                            enemy.y += Math.sin(enemy.angle) * enemy.speed * 0.5;
+                        }
+                    }
+                    
+                    if (enemy.searchTime > 5000 || canEnemySeePlayer()) {
+                        if (canEnemySeePlayer()) {
+                            enemy.state = 'chase';
+                        } else {
+                            enemy.state = 'patrol';
+                            enemy.awareness = 0;
+                        }
+                    }
+                    break;
+            }
+            
+            if (enemy.state !== 'chase' && enemy.awareness > 0) {
+                enemy.awareness -= 0.1;
+            }
+        }
+        
+        function catchPlayer() {
+            gameState.lives--;
+            updateUI();
+            showDamageEffect();
+            
+            if (gameState.lives <= 0) {
+                endGame(false);
+            } else {
+                const randomSpot = hidingSpots[Math.floor(Math.random() * hidingSpots.length)];
+                player.x = randomSpot.x + randomSpot.width / 2;
+                player.y = randomSpot.y + randomSpot.height / 2;
+                
+                enemy.state = 'patrol';
+                enemy.awareness = 0;
+                enemy.currentPoint = 0;
+            }
+        }
+        
+        function showDamageEffect() {
+            const overlay = document.getElementById('damage-overlay');
+            overlay.style.opacity = '0.8';
+            setTimeout(() => {
+                overlay.style.opacity = '0';
+            }, 500);
+        }
+        
+        // === СБОР ПРЕДМЕТОВ ===
         function tryCollectItem() {
             items.forEach(item => {
                 if (!item.collected) {
                     const dx = player.x - item.x;
                     const dy = player.y - item.y;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < 40) {
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < 60) {
                         item.collected = true;
                         gameState.itemsCollected++;
                         updateInventory();
@@ -309,7 +819,6 @@
             });
         }
         
-        // Обновление инвентаря
         function updateInventory() {
             const container = document.getElementById('items-container');
             container.innerHTML = '';
@@ -323,16 +832,16 @@
             document.getElementById('items-collected').textContent = gameState.itemsCollected;
         }
         
-        // Проверка победы
         function checkWin() {
             if (gameState.itemsCollected >= gameState.totalItems) {
                 endGame(true);
             }
         }
         
-        // Конец игры
         function endGame(win) {
             gameState.isRunning = false;
+            document.exitPointerLock();
+            
             const msg = document.getElementById('message');
             const title = document.getElementById('msg-title');
             const text = document.getElementById('msg-text');
@@ -347,10 +856,9 @@
                 text.textContent = 'Похититель поймал вас...\nПопробуйте снова!';
             }
             
-            msg.style.display = 'block';
+            msg.style.display = 'flex';
         }
         
-        // Перезапуск игры
         function restartGame() {
             gameState = {
                 lives: 10,
@@ -359,13 +867,13 @@
                 gameTime: 0,
                 isRunning: true,
                 stealthLevel: 0,
-                lastEnemyCheck: 0
+                lastTime: performance.now(),
+                isPaused: false
             };
             
-            player.x = ROOM_WIDTH / 2;
-            player.y = ROOM_HEIGHT / 2;
-            player.vx = 0;
-            player.vy = 0;
+            player.x = WORLD_WIDTH / 2;
+            player.y = WORLD_HEIGHT / 2;
+            player.angle = 0;
             
             enemy.x = 100;
             enemy.y = 100;
@@ -377,461 +885,94 @@
             items.forEach(item => item.collected = false);
             
             document.getElementById('message').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'none';
             updateInventory();
             updateUI();
             
-            lastTime = performance.now();
-            gameLoop(lastTime);
+            gameLoop(performance.now());
         }
         
-        // Форматирование времени
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            restartGame();
+        }
+        
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
         
-        // Проверка укрытия
-        function isInHidingSpot(x, y) {
-            return hidingSpots.some(spot => 
-                x > spot.x && x < spot.x + spot.width &&
-                y > spot.y && y < spot.y + spot.height
-            );
-        }
-        
-        // Проверка видимости игрока
-        function canEnemySeePlayer() {
-            const dx = player.x - enemy.x;
-            const dy = player.y - enemy.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
+        function updateStealthMeter() {
+            let stealth = 0;
             
-            // Если игрок в укрытии, его не видно
             if (isInHidingSpot(player.x, player.y) && !player.isRunning) {
-                return false;
-            }
-            
-            // Дальность видимости
-            if (dist > 200) return false;
-            
-            // Угол обзора врага
-            const angleToPlayer = Math.atan2(dy, dx);
-            let angleDiff = Math.abs(angleToPlayer - enemy.angle);
-            while (angleDiff > Math.PI) angleDiff -= 2*Math.PI;
-            angleDiff = Math.abs(angleDiff);
-            
-            if (angleDiff > Math.PI / 2) return false;
-            
-            // Присевший игрок менее заметен
-            if (player.isCrouching) {
-                return dist < 100;
-            }
-            
-            return true;
-        }
-        
-        // ИИ врага
-        function updateEnemy(deltaTime) {
-            const dx = player.x - enemy.x;
-            const dy = player.y - enemy.y;
-            const distToPlayer = Math.sqrt(dx*dx + dy*dy);
-            
-            // Обновление угла врага
-            if (enemy.state === 'chase' || enemy.state === 'search') {
-                enemy.angle = Math.atan2(dy, dx);
-            } else if (enemy.state === 'patrol') {
-                const target = enemy.patrolPoints[enemy.currentPoint];
-                const pdx = target.x - enemy.x;
-                const pdy = target.y - enemy.y;
-                enemy.angle = Math.atan2(pdy, pdx);
-            }
-            
-            // Логика состояний
-            switch (enemy.state) {
-                case 'patrol':
-                    const target = enemy.patrolPoints[enemy.currentPoint];
-                    const pdx = target.x - enemy.x;
-                    const pdy = target.y - enemy.y;
-                    const pDist = Math.sqrt(pdx*pdx + pdy*pdy);
-                    
-                    if (pDist < 10) {
-                        enemy.currentPoint = (enemy.currentPoint + 1) % enemy.patrolPoints.length;
-                    } else {
-                        enemy.x += (pdx / pDist) * enemy.speed;
-                        enemy.y += (pdy / pDist) * enemy.speed;
-                    }
-                    
-                    // Если увидел игрока
-                    if (canEnemySeePlayer()) {
-                        enemy.state = 'chase';
-                        enemy.lastSeenPlayer = {x: player.x, y: player.y};
-                    }
-                    break;
-                    
-                case 'chase':
-                    enemy.x += (dx / distToPlayer) * (enemy.speed * 1.5);
-                    enemy.y += (dy / distToPlayer) * (enemy.speed * 1.5);
-                    
-                    // Если потерял игрока
-                    if (!canEnemySeePlayer()) {
-                        enemy.state = 'search';
-                        enemy.searchTime = 0;
-                    }
-                    
-                    // Если поймал игрока
-                    if (distToPlayer < 30) {
-                        catchPlayer();
-                    }
-                    break;
-                    
-                case 'search':
-                    enemy.searchTime += deltaTime;
-                    
-                    // Поиск в последней известной позиции
-                    if (enemy.lastSeenPlayer) {
-                        const sdx = enemy.lastSeenPlayer.x - enemy.x;
-                        const sdy = enemy.lastSeenPlayer.y - enemy.y;
-                        const sDist = Math.sqrt(sdx*sdx + sdy*sdy);
-                        
-                        if (sDist > 10) {
-                            enemy.x += (sdx / sDist) * enemy.speed;
-                            enemy.y += (sdy / sDist) * enemy.speed;
-                        } else if (enemy.searchTime > 3000) {
-                            enemy.state = 'patrol';
-                        }
-                    } else {
-                        enemy.state = 'patrol';
-                    }
-                    
-                    // Если снова увидел игрока
-                    if (canEnemySeePlayer()) {
-                        enemy.state = 'chase';
-                    }
-                    break;
-            }
-            
-            // Границы комнаты
-            enemy.x = Math.max(ENEMY_SIZE, Math.min(ROOM_WIDTH - ENEMY_SIZE, enemy.x));
-            enemy.y = Math.max(ENEMY_SIZE, Math.min(ROOM_HEIGHT - ENEMY_SIZE, enemy.y));
-        }
-        
-        // Поймать игрока
-        function catchPlayer() {
-            gameState.lives--;
-            updateUI();
-            
-            // Отбросить игрока
-            const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
-            player.x = enemy.x - Math.cos(angle) * 100;
-            player.y = enemy.y - Math.sin(angle) * 100;
-            
-            // Сбросить позицию врага
-            enemy.state = 'patrol';
-            enemy.awareness = 0;
-            
-            if (gameState.lives <= 0) {
-                endGame(false);
-            }
-        }
-        
-        // Обновление игрока
-        function updatePlayer() {
-            player.isRunning = keys['shift'] && !player.isCrouching;
-            player.isCrouching = keys['c'] || keys['с'];
-            
-            const speed = player.isRunning ? player.runSpeed : player.speed;
-            const moveSpeed = player.isCrouching ? speed * 0.5 : speed;
-            
-            player.vx = 0;
-            player.vy = 0;
-            
-            if (keys['w'] || keys['ц'] || keys['arrowup']) player.vy = -moveSpeed;
-            if (keys['s'] || keys['ы'] || keys['arrowdown']) player.vy = moveSpeed;
-            if (keys['a'] || keys['ф'] || keys['arrowleft']) player.vx = -moveSpeed;
-            if (keys['d'] || keys['в'] || keys['arrowright']) player.vx = moveSpeed;
-            
-            player.x += player.vx;
-            player.y += player.vy;
-            
-            // Границы комнаты
-            player.x = Math.max(PLAYER_SIZE, Math.min(ROOM_WIDTH - PLAYER_SIZE, player.x));
-            player.y = Math.max(PLAYER_SIZE, Math.min(ROOM_HEIGHT - PLAYER_SIZE, player.y));
-            
-            // Угол взгляда игрока
-            if (player.vx !== 0 || player.vy !== 0) {
-                player.angle = Math.atan2(player.vy, player.vx);
-            }
-        }
-        
-        // Обновление уровня заметности
-        function updateStealthLevel() {
-            const inHiding = isInHidingSpot(player.x, player.y);
-            const isMoving = player.vx !== 0 || player.vy !== 0;
-            const isRunning = player.isRunning;
-            const isCrouching = player.isCrouching;
-            
-            let change = 0;
-            
-            if (inHiding && !isMoving) {
-                change = -2; // Быстро скрываемся
-            } else if (inHiding && isCrouching) {
-                change = -1; // Медленно скрываемся
-            } else if (isCrouching) {
-                change = -0.5; // Присев, медленнее становимся заметными
-            } else if (isRunning) {
-                change = 3; // Бег сильно привлекает внимание
-            } else if (isMoving) {
-                change = 1; // Движение привлекает внимание
-            }
-            
-            // Если враг видит игрока
-            if (canEnemySeePlayer()) {
-                change += 5;
-                document.getElementById('status').textContent = '🚨 ВАС ВИДЯТ!';
-                document.getElementById('status').style.color = '#ff6b6b';
+                stealth = Math.max(0, stealth - 2);
             } else {
-                document.getElementById('status').textContent = inHiding ? '🟢 В укрытии' : '🟡 На виду';
-                document.getElementById('status').style.color = inHiding ? '#4ecdc4' : '#feca57';
+                if (player.isRunning) stealth += 1.5;
+                if (player.isCrouching) stealth -= 0.5;
+                
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < 200 && canEnemySeePlayer()) {
+                    stealth += 3;
+                }
             }
             
-            gameState.stealthLevel = Math.max(0, Math.min(100, gameState.stealthLevel + change));
+            stealth = Math.max(0, Math.min(100, stealth));
+            gameState.stealthLevel = stealth;
             
-            // Обновление полоски
-            document.getElementById('stealth-fill').style.width = gameState.stealthLevel + '%';
+            const fill = document.getElementById('stealth-fill');
+            fill.style.width = `${stealth}%`;
+            
+            if (stealth < 30) {
+                fill.style.background = 'linear-gradient(90deg, #4ecdc4, #4ecdc4)';
+            } else if (stealth < 70) {
+                fill.style.background = 'linear-gradient(90deg, #4ecdc4, #feca57)';
+            } else {
+                fill.style.background = 'linear-gradient(90deg, #feca57, #ff6b6b)';
+            }
         }
         
-        // Обновление UI
         function updateUI() {
             document.getElementById('lives').textContent = gameState.lives;
+            document.getElementById('items-collected').textContent = gameState.itemsCollected;
             document.getElementById('time').textContent = formatTime(gameState.gameTime);
         }
         
-        // Отрисовка комнаты
-        function drawRoom() {
-            // Пол
-            ctx.fillStyle = '#2d2d2d';
-            ctx.fillRect(0, 0, ROOM_WIDTH, ROOM_HEIGHT);
-            
-            // Стены
-            ctx.strokeStyle = '#1a1a1a';
-            ctx.lineWidth = 20;
-            ctx.strokeRect(0, 0, ROOM_WIDTH, ROOM_HEIGHT);
-            
-            // Укрытия (тёмные зоны)
-            hidingSpots.forEach(spot => {
-                const gradient = ctx.createRadialGradient(
-                    spot.x + spot.width/2, spot.y + spot.height/2, 0,
-                    spot.x + spot.width/2, spot.y + spot.height/2, spot.width/2
-                );
-                gradient.addColorStop(0, 'rgba(0,0,0,0.6)');
-                gradient.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(spot.x, spot.y, spot.width, spot.height);
-            });
-        }
-        
-        // Отрисовка предметов
-        function drawItems() {
-            items.forEach(item => {
-                if (!item.collected) {
-                    // Светящийся эффект
-                    const gradient = ctx.createRadialGradient(item.x, item.y, 0, item.x, item.y, 30);
-                    gradient.addColorStop(0, 'rgba(255,255,255,0.8)');
-                    gradient.addColorStop(1, 'rgba(255,255,255,0)');
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(item.x, item.y, 30, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Иконка предмета
-                    ctx.font = '20px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(item.icon, item.x, item.y);
+        // === ИГРОВОЙ ЦИКЛ ===
+        function gameLoop(currentTime) {
+            if (!gameState.isRunning || gameState.isPaused) {
+                if (gameState.isRunning) {
+                    requestAnimationFrame(gameLoop);
                 }
-            });
-        }
-        
-        // Отрисовка игрока
-        function drawPlayer() {
-            ctx.save();
-            ctx.translate(player.x, player.y);
-            ctx.rotate(player.angle);
-            
-            // Тело
-            ctx.fillStyle = player.isCrouching ? '#4ecdc4' : '#3498db';
-            ctx.beginPath();
-            ctx.arc(0, 0, PLAYER_SIZE, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Направление взгляда
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(PLAYER_SIZE * 0.6, 0, 6, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.restore();
-            
-            // Конус зрения игрока
-            ctx.save();
-            ctx.translate(player.x, player.y);
-            ctx.rotate(player.angle);
-            ctx.fillStyle = 'rgba(52, 152, 219, 0.2)';
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.arc(0, 0, player.viewDistance, -player.viewAngle/2, player.viewAngle/2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        }
-        
-        // Отрисовка врага
-        function drawEnemy() {
-            ctx.save();
-            ctx.translate(enemy.x, enemy.y);
-            ctx.rotate(enemy.angle);
-            
-            // Тело
-            ctx.fillStyle = '#e74c3c';
-            ctx.beginPath();
-            ctx.arc(0, 0, ENEMY_SIZE, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Злые глаза
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(8, -6, 5, 0, Math.PI * 2);
-            ctx.arc(8, 6, 5, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.arc(10, -6, 2, 0, Math.PI * 2);
-            ctx.arc(10, 6, 2, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.restore();
-            
-            // Конус зрения врага
-            ctx.save();
-            ctx.translate(enemy.x, enemy.y);
-            ctx.rotate(enemy.angle);
-            
-            let visionColor, visionDistance;
-            if (enemy.state === 'chase') {
-                visionColor = 'rgba(231, 76, 60, 0.4)';
-                visionDistance = 200;
-            } else if (enemy.state === 'search') {
-                visionColor = 'rgba(241, 196, 15, 0.3)';
-                visionDistance = 150;
-            } else {
-                visionColor = 'rgba(231, 76, 60, 0.2)';
-                visionDistance = 120;
+                return;
             }
             
-            ctx.fillStyle = visionColor;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.arc(0, 0, visionDistance, -Math.PI/2, Math.PI/2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        }
-        
-        // Отрисовка миникарты
-        function drawMinimap() {
-            minimapCtx.clearRect(0, 0, 150, 150);
-            
-            const scale = 150 / Math.max(ROOM_WIDTH, ROOM_HEIGHT);
-            const offsetX = (150 - ROOM_WIDTH * scale) / 2;
-            const offsetY = (150 - ROOM_HEIGHT * scale) / 2;
-            
-            // Комната
-            minimapCtx.fillStyle = '#333';
-            minimapCtx.fillRect(offsetX, offsetY, ROOM_WIDTH * scale, ROOM_HEIGHT * scale);
-            
-            // Игрок
-            minimapCtx.fillStyle = '#3498db';
-            minimapCtx.beginPath();
-            minimapCtx.arc(offsetX + player.x * scale, offsetY + player.y * scale, 4, 0, Math.PI * 2);
-            minimapCtx.fill();
-            
-            // Враг
-            minimapCtx.fillStyle = '#e74c3c';
-            minimapCtx.beginPath();
-            minimapCtx.arc(offsetX + enemy.x * scale, offsetY + enemy.y * scale, 5, 0, Math.PI * 2);
-            minimapCtx.fill();
-            
-            // Предметы
-            items.forEach(item => {
-                if (!item.collected) {
-                    minimapCtx.fillStyle = '#f1c40f';
-                    minimapCtx.beginPath();
-                    minimapCtx.arc(offsetX + item.x * scale, offsetY + item.y * scale, 2, 0, Math.PI * 2);
-                    minimapCtx.fill();
-                }
-            });
-            
-            // Укрытия
-            minimapCtx.fillStyle = 'rgba(0, 100, 0, 0.5)';
-            hidingSpots.forEach(spot => {
-                minimapCtx.fillRect(
-                    offsetX + spot.x * scale,
-                    offsetY + spot.y * scale,
-                    spot.width * scale,
-                    spot.height * scale
-                );
-            });
-        }
-        
-        // Основной игровой цикл
-        let lastTime = performance.now();
-        
-        function gameLoop(currentTime) {
-            if (!gameState.isRunning) return;
-            
-            const deltaTime = currentTime - lastTime;
-            lastTime = currentTime;
-            
-            // Обновление времени
+            const deltaTime = currentTime - gameState.lastTime;
+            gameState.lastTime = currentTime;
             gameState.gameTime += deltaTime / 1000;
             
-            // Очистка
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Центрирование камеры на игроке
-            ctx.save();
-            const camX = canvas.width / 2 - player.x;
-            const camY = canvas.height / 2 - player.y;
-            ctx.translate(camX, camY);
-            
-            // Отрисовка игрового мира
-            drawRoom();
-            drawItems();
-            drawEnemy();
-            drawPlayer();
-            
-            ctx.restore();
-            
-            // Обновление логики
             updatePlayer();
             updateEnemy(deltaTime);
-            updateStealthLevel();
+            updateStealthMeter();
             updateUI();
-            drawMinimap();
+            
+            render3D();
             
             requestAnimationFrame(gameLoop);
         }
         
-        // Инициализация
-        updateInventory();
-        gameLoop(performance.now());
-        
-        // Ресайз окна
         window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            screenWidth = window.innerWidth;
+            screenHeight = window.innerHeight;
+            canvas.width = screenWidth;
+            canvas.height = screenHeight;
         });
+        
+        updateInventory();
     </script>
 </body>
 </html>
