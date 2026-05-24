@@ -31,7 +31,7 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --noconsole --name="BlackPhone3D" --collect-all ursina black_phone_3d.py
+        pyinstaller --onefile --noconsole --name="BlackPhone3D" --collect-all ursina --collect-all panda3d black_phone_3d.py
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
